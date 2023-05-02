@@ -1,76 +1,31 @@
 import numpy as np
+import xmltodict
 from scipy.optimize import curve_fit
 
-def h5_LV_attributes_to_struct(h5_info_attrib, attrib_out=None):
-    """
-    Turns a list of attributes of an HDF element into a data structure.
-    Each attribute is supposed to be a LabView control flattened to XML.
-    """
-    # Obtain structure to append, if it is passed.
-    if attrib_out is None:
-        attrib_out = dict()
 
-    # Attributes that will be ignored
-    ignored_attribute_names = []
 
-    for attrib in h5_info_attrib:
-        name = attrib.name
-        if name not in ignored_attribute_names:
-            try:
-                attrib_out = parseLabviewXML_str(attrib.value[0], attrib_out)
-            except TypeError:
-                attrib_out = parseLabviewXML_str(attrib.value, attrib_out)
+def h5_LV_attributes_to_dict(h5_info_attrib, *args):
+    # Turns a list of attributes of an HDF element into a data dictionary.
+    # Each attribute is supposed to be a LabView control flattened to XML.
 
+    # Obtain strcuture to append, if it is passed.
+    if not args:
+        attrib_out = {}
+    else:
+        attrib_out = args[0]
+
+    for i in h5_info_attrib.attrs:
+        attrib_out[i]=xmltodict.parse(h5_info_attrib.attrs[i])
+    
     return attrib_out
 
-
-# Read pupil segmentation using the following 6 functions
-
-def createLegalStructFieldName(name):
-    name = name.replace(' ', '_')
-    name = name.replace('[', '_')
-    name = name.replace(']', '_')
-    name = name.replace('@', '_at_')
-    name = name.replace('-', '_dash_')
-    name = name.replace(',', '_')
-    name = name.replace('(', '')
-    name = name.replace(')', '')
-    name = name.replace('{', '')
-    name = name.replace('}', '')
-    name = name.replace('.', '_dot_')
-    name = name.replace('>', '_greater_')
-    name = name.replace('<', '_less_')
-    name = name.replace('=', '_equal_')
-    name = name.replace('#', 'numer_of')
-    name = name.replace('?', '_questionmark_')
-    name = name.replace('+', '_plus_')
-    name = name.replace('/', '')
-    name = name.replace('\\', '')
-    name = name.replace('%', '')
-    name = name.replace('\n', '')
-    # determine if string starts with number
-    if name[0].isdigit():
-        name = 'NUM_' + name
-
-    return name
-
-def shorten_group_name(str):
-    # find slashes
-    slash_idx = [i for i, char in enumerate(str) if char == '/']
-    # keep everything after the last slash
-    str_out = str[slash_idx[-1]+1:]
-    return str_out
 
 def h5_LV_MF_format_extract_parameters(parameters_info):
     # Load all parameters from file with MF format.
     # Each VI parameters set is loaded into a field of the structure.
     p = dict()
-
-
-    for group in parameters_info['slm_control']:
-        group_name = shorten_group_name(group['Name'])
-        p[group_name] = h5_LV_attributes_to_struct(group['Attributes'])
-
+    for group in parameters_info:
+        p[group] = h5_LV_attributes_to_dict(parameters_info[group])
     return p
 
 

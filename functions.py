@@ -1,4 +1,4 @@
-from Complementary import createLegalStructFieldName, h5_LV_attributes_to_struct,  h5_LV_MF_format_extract_parameters,shorten_group_name, zernfun, zernikeFittype
+from Complementary import h5_LV_MF_format_extract_parameters, zernikeFittype
 from mpl_toolkits.mplot3d import Axes3D
 from scipy.interpolate import interp2d, griddata, NearestNDInterpolator, SmoothBivariateSpline
 from scipy.optimize import curve_fit, leastsq
@@ -9,6 +9,8 @@ import math
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+
+
 
 # AVERAGE_PHASE get mean/median phase for the whole pupil or phase from single point
 # input: 
@@ -128,9 +130,8 @@ def fit_phase(data, param,out):
         seg_idx = 1
         phase_axis_lim = [-2, 2]
       #___________________________________________________________________________________
-        plt.figure(3)
         fig=plt.figure(3,figsize=(param['figure_position'][2]/100,param['figure_position'][3]/100),dpi=100)
-        fig.suptitle('Phase fit by pupil segment', fontsize=24, fontweight='bold')
+        fig.suptitle('Phase fit by pupil segment')
       #___________________________________________________________________________________
       # SLM pupil segments
         plt.subplot(3,2,1)
@@ -172,7 +173,7 @@ def fit_phase(data, param,out):
         pol= lambda x, y: poly11((x, y), *popt)
         plt.imshow(pol(x_mesh,y_mesh),origin='lower')
        
-        plt.contour(phase_unwrapped[seg_idx,:,:], colors='0.7') 
+        plt.contour(phase_unwrapped[seg_idx,:,:], colors='r') 
         plt.contour(pol(x_mesh,y_mesh), colors='k')
         plt.clim(*phase_axis_lim)
         plt.title('Fit result')
@@ -215,9 +216,7 @@ def fit_phase(data, param,out):
         
 
       #___________________________________________________________________________________
-        plt.figure(4)
         fig=plt.figure(4,figsize=(param['figure_position'][2]/100,param['figure_position'][3]/100),dpi=100)
-        fig.suptitle('Overall phase recovery')
         plt.clf()
 
         for i in range(phase_unwrapped.shape[0]):
@@ -226,7 +225,7 @@ def fit_phase(data, param,out):
             plt.contour(x[i]+x_mesh2, y[i]+y_mesh2, np.fliplr(phase_fit[i,:,:].T), colors='k')
             plt.plot(x_Mesh2[~points_to_keep[i,:,:].astype(bool)].ravel() + x[i], y_Mesh2[~points_to_keep[i,:,:].astype(bool)].ravel() + y[i], 'r.')
             
-        plt.title('Overall retrieved phase', fontsize=24, fontweight='bold')
+        plt.title('Overall retrieved phase')
         cbar=plt.colorbar(yas)
         cbar.set_label('Phase (\u03C0)')
         #plt.show()
@@ -249,9 +248,7 @@ def fit_phase(data, param,out):
                 phase_seg_fit = popt[0]*x + popt[1]*y
                 phase_poly_zero_tilt[:,i1,i2] = phase_poly1 - phase_seg_fit
       #___________________________________________________________________________________
-        plt.figure(5)
         fig=plt.figure(5,figsize=(param['figure_position'][2]/100,param['figure_position'][3]/100),dpi=100)
-        fig.suptitle('Recovered phase after tilt subtraction')
         plt.clf()
 
         for i in seg_rng:
@@ -262,7 +259,7 @@ def fit_phase(data, param,out):
 
         cbar = plt.colorbar(ru)
         cbar.set_label('Phase (\u03C0)')
-        plt.title('Recovered phase after px by px tilt subtraction', fontsize=24, fontweight='bold')
+        plt.title('Recovered phase after px by px tilt subtraction')
         #plt.show()
 
       #____________________________________________________________________
@@ -273,29 +270,30 @@ def fit_phase(data, param,out):
 
 def generate_filenamePrefix(param):
 
-    str=param['save']['filenamePrefix']
+    stri=param['save']['filenamePrefix']
 
     # Interpolation method
     match param['interpolation']['method']:
         case 'zernike':
-            str=[str, '{} order_{:.0f}'.format(param['interpolation']['method'], param['interpolation']['FitOrder'])]
+            stri = stri + ' ' + 'zernike' + ' ' + 'order_' + str(int(param['interpolation']['FitOrder']))
         case 'thin_plate_smoothing_spline':
-            str=[str,'{} smth_{:.2g}'.format(param['interpolation']['method'], param['interpolation']['smoothing'])]
+            stri = stri + ' ' + 'thin_plate_smoothing_spline' + ' ' + 'smth_' + str(param['interpolation']['smoothing'])
         case _:
-            str=[str,'{}'.format(param['interpolation']['method'])]
+            stri = stri + ' ' + param['interpolation']['method']
     
     # Average method
-    str=[str,'avg_{}'.format(param['average']['method'])]
+    stri = stri + ' ' + 'avg_' + param['average']['method']
 
     # Cut method
     if param['interpolation']['cut']['on']:
-        str=[str,"cut_{:.2f}".format(param['interpolation']['cut']['Factor']+1)]
+        stri = stri + ' ' + 'cut_' + str(param['interpolation']['cut']['Factor'] + 1)
     
     # Zero minimum
-    if param['save']['filenamePrefix']:
-        str=[str, 'zeromin']
+    if param['interpolation']['zerominimum']:
+        stri = stri + ' ' + 'zeromin'
     
-    param['save']['filenamePrefix']=str
+    param['save']['filenamePrefix']=stri
+    return param
     
 
 
@@ -430,20 +428,8 @@ def read_pupil_segmentation(filename, dirname):
     filename_full = dirname+"/"+filename
 
     with h5py.File(filename_full, 'r') as f:
-        
+
         parameters_info = f.get('/parameters')
-
-        # Display datasets
-        print("Datasets in /data:")
-        for key in f['/data'].keys():
-            print(key)
-        
-        print("Datasets in /parameters:")
-        for key in parameters_info.keys():
-            print(key)
-
-        
-            
         data = dict()
         data['p'] = h5_LV_MF_format_extract_parameters(parameters_info)
         data['im'] = np.transpose(np.array(f['/data/images'])) # index1,index2: pixels of image, index3: pre-known phase, index4: pupil index
@@ -454,8 +440,6 @@ def read_pupil_segmentation(filename, dirname):
         data['dirname'] = dirname
 
     return data
-
-
 
 # RETRIEVE_PHASE Retrieves and unwraps the phase in each pupil
 # input: 
@@ -554,14 +538,13 @@ def retrieve_phase(data,param,out):
         y_mesh2 = im_size*np.linspace(-1, 1, y_mesh.shape[0])
         #___________________________________________________________________________________
         fig=plt.figure(1,figsize=(param['figure_position'][2]/100,param['figure_position'][3]/100),dpi=100)
-        fig.suptitle('Raw data')
         fig.clf()
     
         for j in range(im.shape[2]):
             
             plt.subplot(2, 4, j+1)
             for i in seg_rng:
-                plt.imshow(np.fliplr(im[:,:,j,i]).T, extent=[x[i]-im_size, x[i]+im_size, y[i]-im_size, y[i]+im_size],origin='lower', vmin=0.0, vmax=200)
+                plt.imshow(np.fliplr(im[:,:,j,i]).T, extent=[x[i]-im_size, x[i]+im_size, y[i]-im_size, y[i]+im_size],origin='lower')
                 plt.autoscale(False)
             plt.title('%.1f\u03C0' % phi[j])
             plt.xlabel(r'')
@@ -572,7 +555,7 @@ def retrieve_phase(data,param,out):
         #___________________________________________________________________________________
         plt.subplot(2, 4, 5)
         for i in range(im.shape[3]):
-            plt.imshow(np.fliplr(phase_raw[i, :, :]).T, extent=[x[i]+x_mesh2.min(), x[i]+x_mesh2.max(), y[i]+y_mesh2.min(), y[i]+y_mesh2.max()],origin='lower', vmin=-3, vmax=3)
+            plt.imshow(np.fliplr(phase_raw[i, :, :]).T, extent=[x[i]+x_mesh2.min(), x[i]+x_mesh2.max(), y[i]+y_mesh2.min(), y[i]+y_mesh2.max()],origin='lower')
             plt.autoscale(False)
 
         plt.autoscale(True)
@@ -584,7 +567,7 @@ def retrieve_phase(data,param,out):
         #___________________________________________________________________________________
         plt.subplot(2, 4, 6)
         for i in range(im.shape[3]):
-            plt.imshow(np.fliplr(a[i, :, :]).T, extent=[x[i]+x_mesh2.min(), x[i]+x_mesh2.max(), y[i]+y_mesh2.min(), y[i]+y_mesh2.max()],origin='lower', vmin=0.0, vmax=200)
+            plt.imshow(np.fliplr(a[i, :, :]).T, extent=[x[i]+x_mesh2.min(), x[i]+x_mesh2.max(), y[i]+y_mesh2.min(), y[i]+y_mesh2.max()],origin='lower')
             plt.autoscale(False)
         plt.colorbar()
 
@@ -595,7 +578,7 @@ def retrieve_phase(data,param,out):
         #___________________________________________________________________________________
         plt.subplot(2, 4, 7)
         for i in range(im.shape[3]):
-            plt.imshow(np.fliplr(b[i, :, :]).T, extent=[x[i]+x_mesh2.min(), x[i]+x_mesh2.max(), y[i]+y_mesh2.min(), y[i]+y_mesh2.max()],origin='lower', vmin=0.0, vmax=200)
+            plt.imshow(np.fliplr(b[i, :, :]).T, extent=[x[i]+x_mesh2.min(), x[i]+x_mesh2.max(), y[i]+y_mesh2.min(), y[i]+y_mesh2.max()],origin='lower')
             plt.autoscale(False)
         plt.colorbar()
         plt.autoscale(True)
@@ -618,16 +601,16 @@ def retrieve_phase(data,param,out):
     return out 
 
 
+
 def save_figures(out):
     print('### Saving figures ###')
     figs = [f for f in plt.get_fignums()]
     os.makedirs(out['filename_output'][:-3], exist_ok=True)
-    for i, fig in enumerate(figs):
-        fig_name = plt.figure(fig).get_label().lower().replace(' ', '_')
-        fig_path = os.path.join(out['filename_output'][:-3], f"fig_{fig}_{fig_name}.png")
-        plt.savefig(fig_path)
-        print(f"Figure {fig} {plt.figure(fig).get_label()} saved at {fig_path}")
-
+    for i in range(len(figs)):
+        fig = plt.figure(figs[i])
+        figname = 'fig_' + str(figs[i]) + '_' + str(fig.canvas.manager.window.title()).lower().replace(' ', '_') + '.png'
+        print(f'Figure {figs[i]} {fig.canvas.manager.window.title()}')
+        fig.savefig(os.path.join(out['filename_output'][:-3], figname), dpi=300)
 
 
 # SAVE_PHASE_SLM save data into an HDF5 file
@@ -638,7 +621,7 @@ def save_phase_slm(data, param, out):
    
     phase_slm = out["phase_slm"]
     filenamePrefix = param['save']['filenamePrefix']
-    filename_output = param['save']['dirname'] + filenamePrefix + " src_" + data['filename']
+    filename_output = param['save']['dirname'] + "/" + filenamePrefix + " src_" + data['filename']
     out['filename_output'] = filename_output
     
     if param['save']['on']:
@@ -680,6 +663,7 @@ def save_phase_slm(data, param, out):
                     f["/parameters"].attrs.create(param_name, subparam)
 
         print("### Saving done ###")
+    return out
 
 
 
@@ -718,20 +702,19 @@ def slm_interpolation(data,param,out):
     seg_rng = param['seg_rng']
     p = data['p']
 
+    if int(p['slm_pupil_segmentation']['Beam to use']['LvVariant']['I32']['Val']):
+        beam_index = int(p['slm_pupil_segmentation']['Beam to use']['LvVariant']['I32']['Val']) 
+    else:
+        beam_index = 1
+    
+    outer_diameter_length = param['interpolation']['extend']['OuterDiameterLength']
+    outer_diameter_extension = param['interpolation']['extend']['OuterDiameterExtension']
+    fitOrder = param['interpolation']['FitOrder']
+    cutFactor = param['interpolation']['cut']['Factor']
+    
+    slm_size = [int(p['slm_pupil_segmentation']['size template']['LvVariant']['Array']['I32'][0]['Val']),int(p['slm_pupil_segmentation']['size template']['LvVariant']['Array']['I32'][1]['Val'])]
 
-    #problem accesising it, so in the else beam_index instead of 1 a 5 is used as that would be the value obtained from the if
-   # if 'Beam_to_use' in p['slm_pupil_segmentation']:
-    #    beam_index = p['slm_pupil_segmentation']['Beam_to_use'] + 1
-    #else:
-    beam_index = 5
-    
-    outer_diameter_length = 24 #param['interpolation']['extend']['OuterDiameterLength']
-    outer_diameter_extension = 1.3 #param['interpolation']['extend']['OuterDiameterExtension']
-    fitOrder = 3 #param['interpolation']['FitOrder']
-    cutFactor = 0.01 #param['interpolation']['cut']['Factor']
-    
-    slm_size = [480,576] #np.array(p['slm_pupil_segmentation']['size_template'][0:2], dtype=np.float64)
-    beam_center = [-9,-38] #p['slm_control']['beams'][beam_index]['Beam_position__pix_']
+    beam_center = [float(p['slm_control']['beams']['LvVariant']['Array']['Cluster'][beam_index]['Array']['DBL'][0]['Val']),float(p['slm_control']['beams']['LvVariant']['Array']['Cluster'][beam_index]['Array']['DBL'][1]['Val'])] 
     
  #___________________________________________________________________________________
  # slm meshgrid
@@ -855,9 +838,8 @@ def slm_interpolation(data,param,out):
     Y_mesh_surf =  Y_mesh_surf.T
 
  #___________________________________________________________________________________ 
-    plt.figure(7)
     fig=plt.figure(7,figsize=(param['figure_position'][2]/100,param['figure_position'][3]/100),dpi=100)
-    fig.suptitle('Final phase retrieval result')
+    plt.title('Final phase retrieval results')
     plt.clf()
  #___________________________________________________________________________________
     plt.subplot(2,3,1)
@@ -886,7 +868,6 @@ def slm_interpolation(data,param,out):
     plt.plot(beam_center[1], beam_center[0], 'x', markersize=5, linewidth=2)
     plt.title('SLM correction')
     
-
  #___________________________________________________________________________________
     match param['interpolation']['method']:
         case 'zernike':
@@ -912,12 +893,12 @@ def slm_interpolation(data,param,out):
     
     
     ax=plt.subplot(2,2,4, projection='3d')
-    surf=ax.plot_surface(X_mesh_surf, Y_mesh_surf, phase_fit_mesh,cmap='viridis', alpha=0.35)
+    surf=ax.plot_surface(X_mesh_surf, Y_mesh_surf, phase_fit_mesh,cmap='viridis', alpha=0.70)
     ax.view_init(elev=10, azim=225)
     
   
     ax.contour(X_mesh_surf, Y_mesh_surf, phase_fit_mesh, levels=np.arange(-2, 2.1, 0.1), colors='k')
-    points=ax.scatter(x_int, y_int,phase_int, s=50)
+    points=ax.scatter(x_int, y_int,phase_int, s=40)
     points.set_facecolor(plt.cm.viridis(phase_int))
 
     for i in range(len(phase_int)):
@@ -928,7 +909,7 @@ def slm_interpolation(data,param,out):
     ax.set_zlim([np.min(phase_int), np.max(phase_int)])
     plt.clim([np.min(phase_int), np.max(phase_int)])
     plt.title('Interpolation')
-   plt.show()
+    #plt.show()
  #___________________________________________________________________________________
     return out
 

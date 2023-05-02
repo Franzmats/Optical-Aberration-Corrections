@@ -1,4 +1,4 @@
-from functions import average_phase, fit_phase, generate_filenamePrefix, phase_unwrap_regular, poly_fitfunction_from_order,pupil_segmentation_init, read_pupil_segmentation,retrieve_phase,save_figures,save_phase_slm, slm_interpolation, unwrap_all_pupils
+from functions import average_phase, fit_phase, generate_filenamePrefix, phase_unwrap_regular, pi,pupil_segmentation_init, read_pupil_segmentation,retrieve_phase,save_figures,save_phase_slm, slm_interpolation, unwrap_all_pupils
 import os
 from tkinter import Tk
 from tkinter.filedialog import askopenfilename
@@ -65,7 +65,7 @@ while run_file:
     # Saving
     param['save']['on'] = 1
     
-    # param = generate_filenamePrefix(param)
+    param = generate_filenamePrefix(param)
     
     # Calculate phase for SLM
     out = retrieve_phase(data, param, out)
@@ -74,8 +74,7 @@ while run_file:
     out = unwrap_all_pupils(data, param, out)
     out = slm_interpolation(data, param, out)
     out = save_phase_slm(data, param, out)
-    # out.qof 
-    
+ 
     save_figures(out)
     
     run_file = input('Another file? (y/n) ') == 'y'
