@@ -326,8 +326,8 @@ for idx in range(trials):
             C += a[m] * exp(1j*M[:,:,m]) #for DASH, immediately update the correction mask
 
             #new procedure, normalization of corrected beam, which erases the amplitude information from the corrected field C is replaced by a different scalarn ormalization factor, which can lead to slightly better performance.
-            norm=np.sqrt((1/N_modes*N_modes)*np.sum(abs(C) ** 2))    #calculate normalization factor
-            C=C/norm
+            #norm=np.sqrt((1/N_modes*N_modes)*np.sum(abs(C) ** 2))    #calculate normalization factor
+            #C=C/norm
             
     all_data[:,idx] = ravel(signals)
 
